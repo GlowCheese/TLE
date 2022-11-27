@@ -2,7 +2,8 @@
 [Privacy Policy]: https://discord.com/privacy
 [Community Guidelines]: https://discord.com/guidelines
 [Discord Inc]: https://discord.com
-[Policy]: https://github.com/djnner/TLE/blob/master/pp.md
+[support]: https://discord.gg/eYNJsDhwdN
+[Policy]: https://github.com/GlowCheese/TLE/blob/master/legal/Privacy_Policy.md
 
 
 # Terms of Service
@@ -30,5 +31,5 @@ We reserve the right to update these terms at our own discretion, giving you a 1
 You may opt out by Removing the bot from any Server you have the rights for.
 
 ## Contact
-People may get in contact through e-mail at djnner@proton.me. We are planning to open a Support Server in the future.
+People may get in contact through e-mail at djnner@proton.me, or through the official [Support Server][support] of the Bot.
 Other ways of support may be provided but aren't guaranteed.
