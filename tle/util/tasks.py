@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from discord.ext import commands
+from disnake.ext import commands
 
 import tle.util.codeforces_common as cf_common
 

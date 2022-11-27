@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import disnake
 
 _REACT_FIRST = '\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}'
 _REACT_PREV = '\N{BLACK LEFT-POINTING TRIANGLE}'
@@ -48,9 +49,14 @@ class Paginated:
     async def next_page(self):
         await self.show_page(self.cur_page + 1)
 
-    async def paginate(self, bot, channel, wait_time, delete_after:float = None):
+    async def paginate(self, bot, mode, inter, message, wait_time):
         content, embed = self.pages[0]
-        self.message = await channel.send(content, embed=embed, delete_after=delete_after)
+        if mode == 'edit':
+            self.message = await message.edit(content, embed=embed, view=None)
+        if mode == 'text':
+            self.message = await inter.channel.send(content, embed=embed, view=None)
+        if mode == 'response':
+            self.message = await inter.send(content, embed=embed, view=None)
 
         if len(self.pages) == 1:
             # No need to paginate.
@@ -61,7 +67,7 @@ class Paginated:
             await self.message.add_reaction(react)
 
         def check(reaction, user):
-            return (bot.user != user and
+            return (user == inter.author and
                     reaction.message.id == self.message.id and
                     reaction.emoji in self.reaction_map)
 
@@ -75,14 +81,18 @@ class Paginated:
                 break
 
 
-def paginate(bot, channel, pages, *, wait_time, set_pagenum_footers=False, delete_after:float = None):
-    if not pages:
-        raise NoPagesError()
-    permissions = channel.permissions_for(channel.guild.me)
+async def paginate(bot, mode, inter, pages, *, message = None, wait_time, set_pagenum_footers=False):
+    if not pages: raise NoPagesError()
+    permissions = inter.channel.permissions_for(inter.guild.me)
     if not permissions.manage_messages:
-        raise InsufficientPermissionsError('Permission to manage messages required')
+        if mode == 'edit':
+            return await message.edit('Permission to manage messages required')
+        if mode == 'text':
+            return await inter.channel.send('Permission to manage messages required')
+        if mode == 'response':
+            return await inter.send('Permission to manage messages required')
     if len(pages) > 1 and set_pagenum_footers:
         for i, (content, embed) in enumerate(pages):
             embed.set_footer(text=f'Page {i + 1} / {len(pages)}')
     paginated = Paginated(pages)
-    asyncio.create_task(paginated.paginate(bot, channel, wait_time, delete_after))
+    asyncio.create_task(paginated.paginate(bot, mode, inter, message, wait_time))

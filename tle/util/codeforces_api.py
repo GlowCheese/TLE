@@ -1,13 +1,14 @@
 import asyncio
 import logging
 import time
+import os
+import requests
 import functools
-from collections import namedtuple, deque, defaultdict
+from collections import namedtuple, deque
 
 import aiohttp
 
-from discord.ext import commands
-from tle.util import codeforces_common as cf_common
+from disnake.ext import commands
 
 API_BASE_URL = 'https://codeforces.com/api/'
 CONTEST_BASE_URL = 'https://codeforces.com/contest/'
@@ -16,7 +17,6 @@ GYM_BASE_URL = 'https://codeforces.com/gym/'
 PROFILE_BASE_URL = 'https://codeforces.com/profile/'
 ACMSGURU_BASE_URL = 'https://codeforces.com/problemsets/acmsguru/'
 GYM_ID_THRESHOLD = 100000
-DEFAULT_RATING = 1500
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ RATED_RANKS = (
     Rank(2600, 3000, 'International Grandmaster', 'IGM', '#FF3333', 0xff0000),
     Rank(3000, 10 ** 9, 'Legendary Grandmaster', 'LGM', '#AA0000', 0xcc0000)
 )
-UNRATED_RANK = Rank(None, None, 'Unrated', None, None, None)
+UNRATED_RANK = Rank(None, None, 'Unrated', None, '#101010', 0x101010)
 
 
 def rating2rank(rating):
@@ -54,7 +54,7 @@ class User(namedtuple('User', 'handle firstName lastName country city organizati
 
     @property
     def effective_rating(self):
-        return self.rating if self.rating is not None else DEFAULT_RATING
+        return min(3500, max(800, self.rating)) if self.rating else 800
 
     @property
     def rank(self):
@@ -117,28 +117,27 @@ class Problem(namedtuple('Problem', 'contestId problemsetName index name type po
     def has_metadata(self):
         return self.contestId is not None and self.rating is not None
 
-    def _matching_tags_dict(self, match_tags):
-        """Returns a dict with matching tags."""
-        tags = defaultdict(list)
-        for match_tag in match_tags:
-            for tag in self.tags:
-                if match_tag in tag:
-                    tags[match_tag].append(tag)
-        return dict(tags)
+    def tag_matches_or(self, query_tags):
+        """If any query tag is a substring of any problem tag, returns a list of matched tags."""
+        matches = set()
+        for query_tag in query_tags:
+            curmatch = [tag for tag in self.tags if query_tag in tag]
+            if not curmatch: 
+                continue
+            matches.update(curmatch)
+        if len(matches) == 0:
+            return None
+        return list(matches)
 
-    def matches_all_tags(self, match_tags):
-        match_tags = set(match_tags)
-        return len(self._matching_tags_dict(match_tags)) == len(match_tags)
-
-    def matches_any_tag(self, match_tags):
-        match_tags = set(match_tags)
-        return len(self._matching_tags_dict(match_tags)) > 0
-
-    def get_matched_tags(self, match_tags):
-        return [
-            tag for tags in self._matching_tags_dict(match_tags).values()
-            for tag in tags
-        ]
+    def tag_matches(self, query_tags):
+        """If every query tag is a substring of any problem tag, returns a list of matched tags."""
+        matches = set()
+        for query_tag in query_tags:
+            curmatch = [tag for tag in self.tags if query_tag in tag]
+            if not curmatch:
+                return None
+            matches.update(curmatch)
+        return list(matches)
 
 
 ProblemStatistics = namedtuple('ProblemStatistics', 'contestId index solvedCount')
@@ -180,13 +179,13 @@ class ClientError(CodeforcesApiError):
 
 class HandleNotFoundError(TrueApiError):
     def __init__(self, comment, handle):
-        super().__init__(comment, f'Handle `{handle}` not found on Codeforces')
+        super().__init__(comment, f'Handle `{handle}` not found on CodeForces')
         self.handle = handle
 
 
 class HandleInvalidError(TrueApiError):
     def __init__(self, comment, handle):
-        super().__init__(comment, f'`{handle}` is not a valid Codeforces handle')
+        super().__init__(comment, f'`{handle}` is not a valid CodeForces handle')
         self.handle = handle
 
 
@@ -197,7 +196,7 @@ class CallLimitExceededError(TrueApiError):
 
 class ContestNotFoundError(TrueApiError):
     def __init__(self, comment, contest_id):
-        super().__init__(comment, f'Contest with ID `{contest_id}` not found on Codeforces')
+        super().__init__(comment, f'Contest with ID `{contest_id}` not found on CodeForces')
 
 
 class RatingChangesUnavailableError(TrueApiError):
@@ -222,31 +221,17 @@ def _bool_to_str(value):
 
 
 def cf_ratelimit(f):
-    tries = 3
-    per_second = 1
-    last = deque([0]*per_second)
-
+    tries = 4
     @functools.wraps(f)
     async def wrapped(*args, **kwargs):
         for i in range(tries):
-            now = time.time()
-
-            # Next valid slot is 1s after the `per_second`th last request
-            next_valid = max(now, 1 + last[0])
-            last.append(next_valid)
-            last.popleft()
-
-            # Delay as needed
-            delay = next_valid - now
-            if delay > 0:
-                await asyncio.sleep(delay)
-
             try:
                 return await f(*args, **kwargs)
-            except (ClientError, CallLimitExceededError) as e:
+            except (ClientError, CallLimitExceededError, CodeforcesApiError) as e:
                 logger.info(f'Try {i+1}/{tries} at query failed.')
                 logger.info(repr(e))
                 if i < tries - 1:
+                    await asyncio.sleep((i + 3)//2)
                     logger.info(f'Retrying...')
                 else:
                     logger.info(f'Aborting.')
@@ -265,7 +250,6 @@ async def _query_api(path, data=None):
             try:
                 respjson = await resp.json()
             except aiohttp.ContentTypeError:
-                logger.warning(f'CF API did not respond with JSON, status {resp.status}.')
                 raise CodeforcesApiError
             if resp.status == 200:
                 return respjson['result']
@@ -277,6 +261,38 @@ async def _query_api(path, data=None):
     if 'limit exceeded' in comment:
         raise CallLimitExceededError(comment)
     raise TrueApiError(comment)
+
+def proxy_ratelimit(f):
+    tries = 4
+    @functools.wraps(f)
+    async def wrapped(*args, **kwargs):
+        for i in range(tries):
+            try:
+                return await f(*args, **kwargs)
+            except (ClientError, CallLimitExceededError, CodeforcesApiError) as e:
+                logger.info(f'Try {i+1}/{tries} at proxy api failed.')
+                logger.info(repr(e))
+                if i < tries - 1:
+                    await asyncio.sleep((i + 3)//2)
+                    logger.info(f'Retrying...')
+                else:
+                    logger.info(f'Aborting.')
+                    raise e
+    return wrapped
+
+@proxy_ratelimit
+async def _query_proxy(url):
+    try:
+        logger.info(f'Querying RatingList from Proxy API.')
+        resp = requests.get(url)
+        if resp.status_code != 200:
+            raise CodeforcesApiError
+        resp = resp.json()
+        logger.info(f'Fetched RatingList from Proxy API.')
+        return {user_dict['handle']: user_dict['rating'] for user_dict in resp}
+    except Exception as e:
+        logger.error(f'Request to Proxy API encountered error: {e!r}')
+        raise ClientError from e
 
 
 class contest:
@@ -386,7 +402,25 @@ class user:
                     raise HandleNotFoundError(e.comment, handle)
                 raise
             result += [make_from_dict(User, user_dict) for user_dict in resp]
-        return [cf_common.fix_urls(user) for user in result]
+        return result
+    @staticmethod
+    def correct_rating_changes(*, resp, resource='codeforces.com'):
+        adaptO = [1400, 900, 550, 300, 150, 100, 50]
+        adaptN = [900, 550, 300, 150, 100, 50, 0]
+        for r in resp:
+            if (len(r) > 0):
+                if resource=='codeforces.com':
+                    if (r[0].newRating < 1000):
+                        for ind in range(0,(min(7, len(r)))):
+                            r[ind] = RatingChange(r[ind].contestId, r[ind].contestName, r[ind].handle, r[ind].rank, r[ind].ratingUpdateTimeSeconds, r[ind].oldRating+adaptO[ind], r[ind].newRating+adaptN[ind])
+                    else:
+                        r[0] = RatingChange(r[0].contestId, r[0].contestName, r[0].handle, r[0].rank, r[0].ratingUpdateTimeSeconds, r[0].oldRating+1500, r[0].newRating)
+        if resource!='atcoder.jp':
+            for r in resp:
+                for ind in range(0,len(r)):
+                    r[ind] = RatingChange(r[ind].contestId, r[ind].contestName, r[ind].handle, r[ind].rank, r[ind].ratingUpdateTimeSeconds, r[ind].oldRating + 4*(r[ind].newRating-r[ind].oldRating), r[ind].newRating)
+        return resp
+
 
     @staticmethod
     async def rating(*, handle):
@@ -403,11 +437,16 @@ class user:
 
     @staticmethod
     async def ratedList(*, activeOnly=None):
-        params = {}
-        if activeOnly is not None:
-            params['activeOnly'] = _bool_to_str(activeOnly)
-        resp = await _query_api('user.ratedList', params)
-        return [make_from_dict(User, user_dict) for user_dict in resp]
+        url = os.getenv('RATED_LIST_PROXY')
+        if url:
+            return await _query_proxy(url)
+        else:
+            params = {}
+            if activeOnly is not None:
+                params['activeOnly'] = _bool_to_str(activeOnly)
+            resp = await _query_api('user.ratedList', params)
+            return {user_dict['handle']: user_dict['rating'] for user_dict in resp}
+
 
     @staticmethod
     async def status(*, handle, from_=None, count=None):

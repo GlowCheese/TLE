@@ -4,7 +4,7 @@ import time
 from aiocache import cached
 
 from collections import defaultdict
-from discord.ext import commands
+from disnake.ext import commands
 
 from tle.util import codeforces_common as cf_common
 from tle.util import codeforces_api as cf
@@ -14,8 +14,7 @@ from tle.util import paginator
 from tle.util.ranklist import Ranklist
 
 logger = logging.getLogger(__name__)
-_CONTESTS_PER_BATCH_IN_CACHE_UPDATES = 100
-CONTEST_BLACKLIST = {1308, 1309, 1431, 1432}
+CONTEST_BLACKLIST = {1308, 1309, 1431, 1432, 1522, 1531}
 
 def _is_blacklisted(contest):
     return contest.id in CONTEST_BLACKLIST
@@ -361,6 +360,7 @@ class ProblemsetCache:
 class RatingChangesCache:
     _RATED_DELAY = 36 * 60 * 60
     _RELOAD_DELAY = 10 * 60
+    _CONTESTS_PER_CHUNK = 100
 
     def __init__(self, cache_master):
         self.cache_master = cache_master
@@ -395,7 +395,7 @@ class RatingChangesCache:
         contests = [
             contest for contest in contests if not self.has_rating_changes_saved(contest.id)]
         total_changes = 0
-        for contests_chunk in paginator.chunkify(contests, _CONTESTS_PER_BATCH_IN_CACHE_UPDATES):
+        for contests_chunk in paginator.chunkify(contests, _CONTESTS_PER_CHUNK):
             contests_chunk = await self._fetch(contests_chunk)
             self._save_changes(contests_chunk)
             total_changes += len(contests_chunk)
@@ -563,8 +563,7 @@ class RanklistCache:
         cache = self.cache_master.rating_changes_cache
         self.monitored_contests = [
             contest for contest in self.monitored_contests
-            if not _is_blacklisted(contest) and (
-                contest.phase != 'FINISHED'
+            if not _is_blacklisted(contest) and (contest.phase != 'FINISHED'
                 or cache.is_newly_finished_without_rating_changes(contest))
         ]
 
@@ -693,8 +692,5 @@ class CacheSystem:
     async def getUsersEffectiveRating(*, activeOnly=None):
         """ Returns a dictionary mapping user handle to his effective rating for all the users.
         """
-        ratedList = await cf.user.ratedList(activeOnly=activeOnly)
-        users_effective_rating_dict = {user.handle: user.effective_rating
-                                  for user in ratedList}
-        return users_effective_rating_dict
+        return await cf.user.ratedList(activeOnly=activeOnly)
 

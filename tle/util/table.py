@@ -55,6 +55,7 @@ class Style:
         return ''.join(S)
 
     def format_header(self, data):
+        data = [str(x) for x in data]
         return self._pad(data, self._header).format(*data)
 
     def format_line(self, c):
@@ -62,6 +63,7 @@ class Style:
         return self._pad(data, self._header).replace(':', ':'+c).format(*data)
 
     def format_body(self, data):
+        data = [str(x) for x in data]
         return self._pad(data, self._body).format(*data)
 
     def set_colwidths(self, sizes):

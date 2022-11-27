@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from discord.ext import commands
+from disnake.ext import commands
 
 
 # Event types

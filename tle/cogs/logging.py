@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 
-from discord.ext import commands
+from disnake.ext import commands
 
 from tle.util import discord_common
 

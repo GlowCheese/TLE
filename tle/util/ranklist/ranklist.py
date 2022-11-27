@@ -1,4 +1,4 @@
-from discord.ext import commands
+from disnake.ext import commands
 
 from tle.util.ranklist.rating_calculator import CodeforcesRatingCalculator
 from tle.util.handledict import HandleDict
