@@ -134,40 +134,17 @@ class Moderator(commands.Cog, description = "Control the bot with cool commands 
             await inter.response.send_message(e)
         except Exception as e:
             await inter.response.send_message('Invalid math expression. Please try again!')
-    
-    @commands.Cog.listener()
-    async def on_guild_join(self, guild):
-        await _create_roles(guild, CODECHEF_RATED_RANKS)
-        await _create_roles(guild, CODEFORCES_RATED_RANKS)
-
-    @commands.Cog.listener()
-    async def on_guild_remove(self, guild):
-        await _delete_roles(guild, CODECHEF_RATED_RANKS)
-        await _delete_roles(guild, CODEFORCES_RATED_RANKS)
 
     @commands.slash_command(description = 'Automatically create roles for CodeForces or CodeChef handles')
     @commands.check_any(discord_common.is_guild_owner(), commands.has_permissions(administrator = True), commands.is_owner())
-    async def createrole(self, inter, platform: commands.option_enum(["CodeForces", "CodeChef"]) = "All"):
+    async def createrole(self, inter):
         await inter.response.defer()
 
-        if platform in ["CodeChef", "All"]:
-            await _create_roles(inter.guild, CODECHEF_RATED_RANKS)
-        if platform in ["CodeForces", "All"]:
+        try:
             await _create_roles(inter.guild, CODEFORCES_RATED_RANKS)
-
-        await inter.edit_original_message('OK')
-
-    @commands.slash_command(description = 'Automatically delete roles for CodeForces or CodeChef handles')
-    @commands.check_any(discord_common.is_guild_owner(), commands.has_permissions(administrator = True), commands.is_owner())
-    async def deleterole(self, inter, platform: commands.option_enum(["CodeForces", "CodeChef"]) = "All"):
-        await inter.response.defer()
-
-        if platform in ["CodeChef", "All"]:
-            await _delete_roles(inter.guild, CODECHEF_RATED_RANKS)
-        if platform in ["CodeForces", "All"]:
-            await _delete_roles(inter.guild, CODEFORCES_RATED_RANKS)
-
-        await inter.edit_original_message('OK')
+            await inter.edit_original_message(content = "", embed = embed_success("Role created successfully."))
+        except Exception as e:
+            await inter.edit_original_message(content = "", embed = embed_alert(f"Cannot create roles: {e!r}"))
 
 def setup(bot):
     bot.add_cog(Moderator(bot))
