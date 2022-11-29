@@ -135,16 +135,16 @@ class Moderator(commands.Cog, description = "Control the bot with cool commands 
         except Exception as e:
             await inter.response.send_message('Invalid math expression. Please try again!')
 
-    @commands.slash_command(description = 'Automatically create roles for CodeForces or CodeChef handles')
+    @commands.slash_command(description = 'Automatically create roles for CodeForces handles')
     @commands.check_any(discord_common.is_guild_owner(), commands.has_permissions(administrator = True), commands.is_owner())
     async def createrole(self, inter):
         await inter.response.defer()
 
         try:
             await _create_roles(inter.guild, CODEFORCES_RATED_RANKS)
-            await inter.edit_original_message(content = "", embed = embed_success("Role created successfully."))
+            await inter.edit_original_message(embed = embed_success("Role created successfully."))
         except Exception as e:
-            await inter.edit_original_message(content = "", embed = embed_alert(f"Cannot create roles: {e!r}"))
+            await inter.edit_original_message(embed = embed_alert(f"Cannot create roles: {e!r}"))
 
 def setup(bot):
     bot.add_cog(Moderator(bot))

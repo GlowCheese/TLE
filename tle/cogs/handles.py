@@ -404,22 +404,6 @@ class Handles(commands.Cog, description = "Verify and manage your CP handles"):
         pass
 
     @staticmethod
-    async def update_member_star_role(member, role_to_assign, *, reason):
-        """Sets the `member` to only have the rank role of `role_to_assign`. All other rank roles
-        on the member, if any, will be removed. If `role_to_assign` is None all existing rank roles
-        on the member will be removed.
-        """
-        if member is None: return
-        role_names_to_remove = {rank.title for rank in CODECHEF_RATED_RANKS}
-        if role_to_assign is not None:
-            role_names_to_remove.discard(role_to_assign.name)
-        to_remove = [role for role in member.roles if role.name in role_names_to_remove]
-        if to_remove:
-            await member.remove_roles(*to_remove, reason=reason)
-        if role_to_assign is not None and role_to_assign not in member.roles:
-            await member.add_roles(role_to_assign, reason=reason)
-
-    @staticmethod
     async def update_member_rank_role(member, role_to_assign, *, reason):
         """Sets the `member` to only have the rank role of `role_to_assign`. All other rank roles
         on the member, if any, will be removed. If `role_to_assign` is None all existing rank roles
@@ -470,17 +454,6 @@ class Handles(commands.Cog, description = "Verify and manage your CP handles"):
             cf_common.user_db.set_account_id(member.id, guild_id, user['id'], user['resource'], user['handle'])
         except db.UniqueConstraintFailed:
             raise HandleCogError(f'The handle `{user["handle"]}` is already associated with another user.')
-
-        if user['resource'] != 'codechef.com': return
-        # only set role for codechef and codeforces users only
-
-        roletitle = rating2star(user['rating']).title
-        roles = [role for role in inter.guild.roles if role.name == roletitle]
-        if not roles: return
-        try:
-            await self.update_member_star_role(member, roles[0], reason='CodeChef Account Set')
-        except disnake.Forbidden:
-            pass
 
     async def _set(self, inter, member, user):
         handle = user.handle
@@ -562,7 +535,6 @@ class Handles(commands.Cog, description = "Verify and manage your CP handles"):
         if not handle and handles is None:
             raise HandleCogError(f'Handle for `{member}` not found in database')
         user = cf_common.user_db.fetch_cf_user(handle) if handle else None
-        handles = cf_common.user_db.get_account_id_by_user(member.id, inter.guild.id)
         embed = _make_profile_embed(member, user,handles=handles)
         await inter.send(embed = embed)
 
@@ -605,11 +577,6 @@ class Handles(commands.Cog, description = "Verify and manage your CP handles"):
             
         try:
             await self.update_member_rank_role(member, role_to_assign=None, reason='Handle removed for user')
-        except:
-            pass
-
-        try:
-            await self.update_member_star_role(member, role_to_assign=None, reason='Handle removed for user')
         except:
             pass
 
@@ -872,42 +839,6 @@ class Handles(commands.Cog, description = "Verify and manage your CP handles"):
         buffer.seek(0)
         await inter.edit_original_message(msg, file=disnake.File(buffer, 'handles.png'))
 
-    async def _update_ranks_all(self, guild):
-        """For each member in the guild, fetches their current ratings and updates their role if
-        required.
-        """
-        res = cf_common.user_db.get_handles_for_guild(guild.id)
-        await self._update_ranks(guild, res)
-    
-    async def _update_stars_all(self, guild):
-        res = cf_common.user_db.get_account_ids_for_resource(guild.id, "codechef.com")
-        await self._update_stars(guild, res)    
-
-    async def _update_stars(self, guild, res):
-        if not res:
-            raise HandleCogError('Handles not set for any user')
-        id_to_member = {account_id: guild.get_member(user_id) for user_id, account_id, handle in res}
-        account_ids = [account_id for user_id, account_id, handle in res]
-        clist_users = await clist.fetch_user_info("codechef.com", account_ids=account_ids)
-        required_roles = {rating2star(user['rating']).title for user in clist_users if user['rating']!=None}
-        star2role = {role.name: role for role in guild.roles if role.name in required_roles}
-        missing_roles = required_roles - star2role.keys()
-        if missing_roles:
-            roles_str = ', '.join(f'`{role}`' for role in missing_roles)
-            plural = 's' if len(missing_roles) > 1 else ''
-            raise HandleCogError(f'Role{plural} for rank{plural} {roles_str} is not present in the server.')
-
-        ok = True
-        for user in clist_users:
-            if user['id'] in id_to_member:
-                member = id_to_member[user['id']]
-                role_to_assign = None if user['rating'] is None else star2role[rating2star(user['rating']).title]
-                try:
-                    await self.update_member_star_role(member, role_to_assign, reason='CodeChef star updates')
-                except disnake.Forbidden:
-                    ok = False
-        if not ok: raise HandleCogError(f'Cannot update roles for some members: Missing permission.')
-
     async def _update_ranks(self, guild, res):
         member_handles = [(guild.get_member(user_id), handle) for user_id, handle in res]
         member_handles = [(member, handle) for member, handle in member_handles if member is not None]
@@ -1019,16 +950,6 @@ class Handles(commands.Cog, description = "Verify and manage your CP handles"):
         """
         await inter.response.defer()
         await self._update_ranks_all(inter.guild)
-        await inter.edit_original_message(embed=discord_common.embed_success('Roles updated successfully.'))
-
-    @roleupdate.sub_command(description='Update roles for Codechef handles')
-    @commands.check_any(discord_common.is_guild_owner(), commands.has_permissions(administrator = True), commands.is_owner())
-    async def codechef(self, inter):
-        """
-        Update roles for Codechef handles
-        """
-        await inter.response.defer()
-        await self._update_stars_all(inter.guild)
         await inter.edit_original_message(embed=discord_common.embed_success('Roles updated successfully.'))
     
     @roleupdate.sub_command_group(description='Group of commands for publishing rank update')
