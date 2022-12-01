@@ -944,7 +944,7 @@ class Handles(commands.Cog, description = "Verify and manage your CP handles"):
 
     @roleupdate.sub_command(description='Update roles for Codeforces handles')
     @commands.check_any(discord_common.is_guild_owner(), commands.has_permissions(administrator = True), commands.is_owner())
-    async def codeforces(self, inter):
+    async def now(self, inter):
         """
         Update roles for Codeforces handles
         """
