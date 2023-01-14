@@ -14,6 +14,7 @@ from os import environ
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import storage
+from .keep_alive import keep_alive
 
 STORAGE_BUCKET = str(environ.get('STORAGE_BUCKET'))
 bucket = None
@@ -78,6 +79,7 @@ def setup():
 
 
 def main():
+    keep_alive()
     parser = argparse.ArgumentParser()
     parser.add_argument('--nodb', action='store_true')
     args = parser.parse_args()
