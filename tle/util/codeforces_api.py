@@ -392,7 +392,7 @@ class user:
             params = {'handles': ';'.join(chunk)}
             try:
                 resp = await _query_api('user.info', params)
-            except CodeforcesApiError as e:
+            except TrueApiError as e:
                 if 'not found' in e.comment:
                     # Comment format is "handles: User with handle ***** not found"
                     handle = e.comment.partition('not found')[0].split()[-1]
