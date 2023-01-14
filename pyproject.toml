@@ -2,11 +2,12 @@
 name = "TLE"
 version = "0.1.0"
 description = ""
-authors = ["meooow25 <soumiksarkar.3120@gmail.com>"]
+authors = ["djnner <djnner@proton.me>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
 seaborn = "^0.10.1"
+waitress = "^2.1.2"
 lxml = "^4.3"
 pycairo = "^1.19.1"
 PyGObject = "^3.34.0"
@@ -17,6 +18,7 @@ requests = "^2.25.1"
 pytz = "^2021.1"
 beautifulsoup4 = "^4.9.3"
 disnake = "^2.5.0"
+flask = "^2.2.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^3.0"

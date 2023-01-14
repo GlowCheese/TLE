@@ -839,6 +839,11 @@ class Handles(commands.Cog, description = "Verify and manage your CP handles"):
         buffer.seek(0)
         await inter.edit_original_message(msg, file=disnake.File(buffer, 'handles.png'))
 
+    async def _update_ranks_all(self, guild):
+        """For each member in the guild, fetches their current ratings and updates their role if required."""
+        res = cf_common.user_db.get_handles_for_guild(guild.id)
+        await self._update_ranks(guild, res)
+
     async def _update_ranks(self, guild, res):
         member_handles = [(guild.get_member(user_id), handle) for user_id, handle in res]
         member_handles = [(member, handle) for member, handle in member_handles if member is not None]

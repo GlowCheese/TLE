@@ -392,10 +392,12 @@ class user:
 
         result = []
         for chunk in chunks:
+            logger.warning(chunk)
             params = {'handles': ';'.join(chunk)}
             try:
                 resp = await _query_api('user.info', params)
             except TrueApiError as e:
+                logger.warning(e)
                 if 'not found' in e.comment:
                     # Comment format is "handles: User with handle ***** not found"
                     handle = e.comment.partition('not found')[0].split()[-1]
