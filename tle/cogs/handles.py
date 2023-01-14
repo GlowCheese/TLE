@@ -646,7 +646,7 @@ class Handles(commands.Cog, description = "Verify and manage your CP handles"):
         mapping = {(rev_lookup[handle], handle): cf_user
                    for handle, cf_user in handle_cf_user_mapping.items()}
         summary_embed = await self._fix_and_report(inter, mapping)
-        await inter.edit_original_message(embed=summary_embed)
+        await inter.edit_original_message(content = "", embed=summary_embed)
 
     async def _fix_and_report(self, inter, redirections):
         fixed = []
