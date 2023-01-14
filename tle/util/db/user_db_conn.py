@@ -6,6 +6,7 @@ from typing import List
 from disnake.ext import commands
 
 from tle.util import codeforces_api as cf
+from tle.util import codeforces_common as cf_common
 
 from os import environ
 from firebase_admin import storage
@@ -374,7 +375,7 @@ class UserDbConn:
                  'FROM cf_user_cache '
                  'WHERE UPPER(handle) = UPPER(?)')
         user = self.conn.execute(query, (handle,)).fetchone()
-        return cf.User._make(user) if user else None
+        return cf_common.fix_urls(cf.User._make(user)) if user else None
 
     def set_handle(self, user_id, guild_id, handle):
         query = ('SELECT user_id '

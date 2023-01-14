@@ -367,6 +367,11 @@ def parse_date(arg):
     except ValueError:
         raise ParamParseError(f'{arg} is an invalid date argument')
 
+def fix_urls(user: cf.User):
+    if user.titlePhoto.startswith('//'):
+        user = user._replace(titlePhoto = 'https:' + user.titlePhoto)
+    return user
+
 class SubFilter:
     def __init__(self, rated=True):
         self.team = False

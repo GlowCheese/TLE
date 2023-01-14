@@ -629,8 +629,7 @@ class Handles(commands.Cog, description = "Verify and manage your CP handles"):
         Updates handles of all users that have changed handles
         (typically new year's magic)
         """
-
-        await inter.response.defer()
+        await inter.response.send_message('This may take a while...')
 
         user_id_and_handles = cf_common.user_db.get_handles_for_guild(inter.guild.id)
 

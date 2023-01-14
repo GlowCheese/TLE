@@ -9,6 +9,7 @@ from collections import namedtuple, deque
 import aiohttp
 
 from disnake.ext import commands
+from tle.util import codeforces_common as cf_common
 
 API_BASE_URL = 'https://codeforces.com/api/'
 CONTEST_BASE_URL = 'https://codeforces.com/contest/'
@@ -228,13 +229,10 @@ def cf_ratelimit(f):
             try:
                 return await f(*args, **kwargs)
             except (ClientError, CallLimitExceededError, CodeforcesApiError) as e:
-                logger.info(f'Try {i+1}/{tries} at query failed.')
-                logger.info(repr(e))
                 if i < tries - 1:
                     await asyncio.sleep((i + 3)//2)
-                    logger.info(f'Retrying...')
                 else:
-                    logger.info(f'Aborting.')
+                    logger.info(f'{repr(e)}. Aborting retry process.')
                     raise e
     return wrapped
 
@@ -260,6 +258,8 @@ async def _query_api(path, data=None):
     logger.warning(f'Query to CF API failed: {comment}')
     if 'limit exceeded' in comment:
         raise CallLimitExceededError(comment)
+
+    logger.warning('i miss nbn T^T')
     raise TrueApiError(comment)
 
 def proxy_ratelimit(f):
@@ -270,13 +270,10 @@ def proxy_ratelimit(f):
             try:
                 return await f(*args, **kwargs)
             except (ClientError, CallLimitExceededError, CodeforcesApiError) as e:
-                logger.info(f'Try {i+1}/{tries} at proxy api failed.')
-                logger.info(repr(e))
                 if i < tries - 1:
                     await asyncio.sleep((i + 3)//2)
-                    logger.info(f'Retrying...')
                 else:
-                    logger.info(f'Aborting.')
+                    logger.info(f'{repr(e)}. Aborting retry process.')
                     raise e
     return wrapped
 
@@ -392,19 +389,17 @@ class user:
 
         result = []
         for chunk in chunks:
-            logger.warning(chunk)
             params = {'handles': ';'.join(chunk)}
             try:
                 resp = await _query_api('user.info', params)
-            except TrueApiError as e:
-                logger.warning(e)
+            except CodeforcesApiError as e:
                 if 'not found' in e.comment:
                     # Comment format is "handles: User with handle ***** not found"
                     handle = e.comment.partition('not found')[0].split()[-1]
                     raise HandleNotFoundError(e.comment, handle)
                 raise
             result += [make_from_dict(User, user_dict) for user_dict in resp]
-        return result
+        return [cf_common.fix_urls(user) for user in result]
     @staticmethod
     def correct_rating_changes(*, resp, resource='codeforces.com'):
         adaptO = [1400, 900, 550, 300, 150, 100, 50]
@@ -494,7 +489,7 @@ async def _needs_fixing(handles):
 
 
 async def _resolve_redirect(handle):
-    url = 'http://codeforces.com/profile/' + handle
+    url = PROFILE_BASE_URL + handle
     async with _session.head(url) as r:
         if r.status == 200:
             return handle

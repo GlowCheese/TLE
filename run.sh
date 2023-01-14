@@ -6,5 +6,6 @@ cd "$(dirname "$0")"
 [ -e environment ] && . ./environment
 
 git pull
+python keep_alive.py
 poetry install
-poetry run python -m tle
+FONTCONFIG_FILE=$PWD/extra/fonts.conf poetry run python -m tle
