@@ -104,7 +104,7 @@ class Moderator(commands.Cog, description = "Control the bot with cool commands 
     @commands.is_owner()
     async def kill(self, inter):
         """Restarts the bot."""
-        await inter.response.send_message('Goodbye boss!\nLooking forward to seeing you soon <:penguhii:1063712752532717598> <:peepoleaves:1063712752532717598>')
+        await inter.response.send_message('Goodbye boss! 🥰🥰')
         os._exit(0)
 
     @meta.sub_command(description='Print bot guilds')
