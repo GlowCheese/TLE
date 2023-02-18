@@ -7,6 +7,7 @@ authors = ["djnner <djnner@proton.me>"]
 [tool.poetry.dependencies]
 python = "^3.9"
 seaborn = "^0.10.1"
+waitress = "^2.1.2"
 lxml = "^4.3"
 pycairo = "^1.19.1"
 PyGObject = "^3.34.0"
