@@ -1,5 +1,8 @@
 # TLE
 
+### **IMPORTANT: THIS BOT IS CURRENTLY UNMAINTAINED.**
+### **Any contribution to this repo is appreciated! Contact me via [my Discord profile](https://discordapp.com/users/782124623910535188).**
+
 TLE is a Discord bot centered around Competitive Programming.
 
 Join our [TLE Community Server](https://discord.gg/eYNJsDhwdN) to use the bot and get the latest updates!
